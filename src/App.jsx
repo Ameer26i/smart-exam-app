@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import startImage from "./assets/Al farabe.png";
 
 /* ═══════════════════════════════════════════════════════
    TRANSLATIONS
@@ -364,6 +365,8 @@ body{background:var(--bg);color:var(--txt);min-height:100vh}
 .brand-title{font-size:30px;font-weight:900;background:linear-gradient(135deg,var(--teal),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px;line-height:1.3}
 .brand-sub{color:var(--muted);margin-bottom:36px;font-size:14px;line-height:1.7}
 .role-cards{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:28px}
+.start-image-wrap{margin:0 auto 28px;max-width:540px;border-radius:24px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.22)}
+.start-image{width:100%;display:block;object-fit:cover;height:auto}
 .role-card{background:var(--s1);border:1.5px solid var(--b1);border-radius:20px;padding:34px 20px;cursor:pointer;transition:all .25s;text-align:center}
 .role-card:hover{border-color:var(--teal);box-shadow:var(--glow-t);transform:translateY(-4px)}
 .role-card.t:hover{border-color:var(--blue);box-shadow:0 0 32px rgba(59,142,255,.15)}
@@ -1347,6 +1350,9 @@ export default function App() {
               <div className="brand">🎓</div>
               <div className="brand-title">{t.platformTitle}</div>
               <div className="brand-sub">{t.platformSub}</div>
+              <div className="start-image-wrap">
+                <img className="start-image" src={startImage} alt="hero" />
+              </div>
               <div className="role-cards">
                 <div className="role-card t" onClick={()=>{setRole("teacher");setShowAuth(true)}}>
                   <div className="role-icon">👨‍🏫</div>
