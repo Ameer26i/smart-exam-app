@@ -499,6 +499,11 @@ body{background:var(--bg);color:var(--txt);min-height:100vh}
 .sec-title{font-size:26px;font-weight:900;color:var(--red)}
 .sec-msg{color:var(--muted);max-width:440px;font-size:15px;line-height:1.7}
 
+/* EXAM PROTECTION - MOBILE & DESKTOP */
+.exam-protected{user-select:none;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;-webkit-touch-callout:none;-webkit-user-drag:none}
+.exam-protected *{user-select:none;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none}
+
+
 /* RESULTS */
 .res-wrap{max-width:700px;margin:0 auto;padding:28px 20px}
 .res-card{background:var(--s1);border:1px solid var(--b1);border-radius:20px;padding:40px;text-align:center;box-shadow:var(--glow-t);animation:slideUp .5s ease}
@@ -660,6 +665,12 @@ function TeacherDash({ user, lang, t, onLogout }) {
     const reg = await store.get("student-registry") || {};
     const res = await store.get("student-results")  || {};
     setStudents(Object.values(reg)); setResults(res);
+    
+    const storageListener = () => {
+      load();
+    };
+    window.addEventListener("storage", storageListener);
+    return () => window.removeEventListener("storage", storageListener);
   }, []);
 
   useEffect(()=>{ load(); },[load]);
@@ -667,8 +678,10 @@ function TeacherDash({ user, lang, t, onLogout }) {
   const save = async () => {
     if (!cfg.subject.trim()) return;
     setSaving(true);
-    const data = { ...cfg, questions: normalizeQuestionArray(cfg.questions, cfg.count), lang, teacherEmail:user.email, savedAt:nowStr() };
+    const examId = cfg.id || "exam-" + Date.now();
+    const data = { ...cfg, id: examId, questions: normalizeQuestionArray(cfg.questions, cfg.count), lang, teacherEmail:user.email, savedAt:nowStr(), published: true };
     await store.set("exam-config", data);
+    await store.set("published-exams", { ...(await store.get("published-exams") || {}), [examId]: data });
     setSaved(true); setSaving(false);
   };
 
@@ -981,13 +994,15 @@ function StudentExam({ user, lang, t, onLogout }) {
 
   const loadExam = async () => {
     const config = await store.get("exam-config");
-    if (!config) { setPhase("noexam"); return; }
+    const publishedExams = await store.get("published-exams") || {};
+    const availableExam = config || Object.values(publishedExams)[0];
+    if (!availableExam) { setPhase("noexam"); return; }
     const res = await store.get("student-results") || {};
     if (res[user.email]) {
       setQs(res[user.email].questions||[]); setAns(res[user.email].answers||{});
-      setCfg(config); setPhase("results"); return;
+      setCfg(availableExam); setPhase("results"); return;
     }
-    setCfg(config); setPhase("ready");
+    setCfg(availableExam); setPhase("ready");
   };
 
   const start = () => {
@@ -1033,12 +1048,20 @@ function StudentExam({ user, lang, t, onLogout }) {
     const onVis  = () => { if(document.hidden) addV(lang==="ar"?"مغادرة النافذة":"Tab Switch"); };
     const onBlur = () => addV(lang==="ar"?"فقدان التركيز":"Window Blur");
     const onCtx  = (e) => { e.preventDefault(); addV(lang==="ar"?"قائمة السياق":"Context Menu"); };
+    const onCopy = (e) => { e.preventDefault(); addV(lang==="ar"?"محاولة نسخ":"Copy Attempt"); };
+    const onPaste = (e) => { e.preventDefault(); addV(lang==="ar"?"محاولة لصق":"Paste Attempt"); };
+    const onTouchStart = (e) => { if (e.touches.length > 1) { e.preventDefault(); addV(lang==="ar"?"تكبير/تصغير":"Pinch Zoom"); } };
+    const onSelectStart = (e) => { e.preventDefault(); addV(lang==="ar"?"محاولة تحديد":"Text Selection"); };
 
     document.addEventListener("keyup",            onKeyUp);
     document.addEventListener("keydown",          onKeyDown);
     document.addEventListener("visibilitychange", onVis);
     window.addEventListener("blur",               onBlur);
     document.addEventListener("contextmenu",      onCtx);
+    document.addEventListener("copy",             onCopy);
+    document.addEventListener("paste",            onPaste);
+    document.addEventListener("touchstart",       onTouchStart, { passive: false });
+    document.addEventListener("selectstart",      onSelectStart);
 
     return () => {
       document.removeEventListener("keyup",            onKeyUp);
@@ -1046,6 +1069,10 @@ function StudentExam({ user, lang, t, onLogout }) {
       document.removeEventListener("visibilitychange", onVis);
       window.removeEventListener("blur",               onBlur);
       document.removeEventListener("contextmenu",      onCtx);
+      document.removeEventListener("copy",             onCopy);
+      document.removeEventListener("paste",            onPaste);
+      document.removeEventListener("touchstart",       onTouchStart);
+      document.removeEventListener("selectstart",      onSelectStart);
     };
   }, [phase, lang]);
 
