@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import startImage from "./assets/Al farabe.png";
+import "./App.css";
 
 /* ═══════════════════════════════════════════════════════
    TRANSLATIONS
@@ -249,6 +250,7 @@ const getFingerprint = () => {
 const fmtTime = t => `${String(Math.floor(t/60)).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`;
 const nowStr  = () => new Date().toLocaleString("ar-SA");
 const IP_LOCK_MS = 3 * 60 * 60 * 1000; // 3 hours
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 
 const fileToBase64 = f => new Promise((res,rej)=>{
   const r=new FileReader(); r.onload=()=>res(r.result.split(",")[1]); r.onerror=()=>rej(new Error("fail")); r.readAsDataURL(f);
@@ -256,6 +258,16 @@ const fileToBase64 = f => new Promise((res,rej)=>{
 const fileToText = f => new Promise((res,rej)=>{
   const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(new Error("fail")); r.readAsText(f,"utf-8");
 });
+const parseJwt = (token) => {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+};
 const makeWatermarkCSS = (name, ip) => {
   const txt = `${name} | ${ip}`;
   const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='360' height='170'><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='14' fill='rgba(255,255,255,0.042)' transform='rotate(-28,180,85)'>${txt}</text></svg>`;
@@ -324,219 +336,6 @@ const generateQuestions = async (material, subject, count, studentName, seed, la
 };
 
 /* ═══════════════════════════════════════════════════════
-   CSS
-═══════════════════════════════════════════════════════ */
-const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&family=Inter:wght@400;600;700;800;900&family=IBM+Plex+Mono:wght@400;600&display=swap');
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#06090f;--s1:#0c1220;--s2:#111a2e;
-  --b1:#1b2d4f;--b2:#243760;
-  --teal:#00e5c8;--teal2:#00b5a0;
-  --blue:#3b8eff;--gold:#fbbf24;--red:#f43f5e;--green:#10b981;--orange:#fb923c;--purple:#a78bfa;
-  --txt:#ddeeff;--muted:#6b8db5;--radius:14px;
-  --glow-t:0 0 32px rgba(0,229,200,.15);
-}
-body{background:var(--bg);color:var(--txt);min-height:100vh}
-.font-ar{font-family:'Tajawal',sans-serif}
-.font-en{font-family:'Inter',sans-serif}
-
-.exam-protected{-webkit-user-select:none;-moz-user-select:none;user-select:none;-webkit-touch-callout:none}
-@media print{.exam-protected,.root{display:none!important}}
-
-.watermark-layer{position:fixed;inset:0;pointer-events:none;z-index:8000;background-repeat:repeat;background-size:360px 170px}
-.ss-flash{position:fixed;inset:0;background:rgba(244,63,94,.22);z-index:9998;pointer-events:none;animation:ssflash .5s ease forwards}
-@keyframes ssflash{0%{opacity:1}100%{opacity:0}}
-
-.root{min-height:100vh;background:
-  radial-gradient(ellipse 100% 50% at 50% -5%,rgba(0,229,200,.09) 0%,transparent 60%),
-  radial-gradient(ellipse 70% 40% at 90% 95%,rgba(59,142,255,.07) 0%,transparent 50%),var(--bg)}
-
-/* LANG SWITCHER */
-.lang-bar{position:fixed;top:16px;left:16px;z-index:999;display:flex;gap:6px}
-.lang-btn{padding:6px 14px;border-radius:999px;border:1.5px solid var(--b2);background:var(--s1);
-  color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;transition:all .2s}
-.lang-btn.active{border-color:var(--teal);color:var(--teal);background:rgba(0,229,200,.08)}
-
-/* ROLE SELECT */
-.role-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-.role-box{width:100%;max-width:580px;text-align:center}
-.brand{font-size:46px;margin-bottom:10px}
-.brand-title{font-size:30px;font-weight:900;background:linear-gradient(135deg,var(--teal),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px;line-height:1.3}
-.brand-sub{color:var(--muted);margin-bottom:36px;font-size:14px;line-height:1.7}
-.role-cards{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:28px}
-.start-image-wrap{margin:0 auto 28px;max-width:540px;border-radius:24px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.22)}
-.start-image{width:100%;display:block;object-fit:cover;height:auto}
-.role-card{background:var(--s1);border:1.5px solid var(--b1);border-radius:20px;padding:34px 20px;cursor:pointer;transition:all .25s;text-align:center}
-.role-card:hover{border-color:var(--teal);box-shadow:var(--glow-t);transform:translateY(-4px)}
-.role-card.t:hover{border-color:var(--blue);box-shadow:0 0 32px rgba(59,142,255,.15)}
-.role-icon{font-size:44px;margin-bottom:14px}
-.role-name{font-size:19px;font-weight:800;margin-bottom:8px}
-.role-desc{font-size:13px;color:var(--muted);line-height:1.65}
-
-/* CREDITS */
-.credits{background:var(--s1);border:1px solid var(--b1);border-radius:16px;padding:18px 22px;text-align:center;font-size:13px;color:var(--muted)}
-.credits-title{font-size:14px;font-weight:700;color:var(--txt);margin-bottom:10px}
-.credits-devs{display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap}
-.dev-link{display:flex;align-items:center;gap:7px;text-decoration:none;
-  background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:8px 14px;transition:all .2s}
-.dev-link:hover{border-color:var(--purple);box-shadow:0 0 16px rgba(167,139,250,.2);transform:translateY(-2px)}
-.dev-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:#fff}
-.dev-name{font-weight:700;font-size:14px;color:var(--txt)}
-.dev-ig{font-size:11px;color:var(--purple)}
-.ig-icon{font-size:16px}
-
-/* GOOGLE MODAL */
-.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:9990;animation:fadeIn .2s}
-.google-modal{background:#fff;border-radius:22px;padding:44px 40px;width:390px;text-align:center;box-shadow:0 40px 100px rgba(0,0,0,.5);animation:slideUp .3s ease}
-.g-logo{font-size:40px;margin-bottom:16px}
-.g-title{font-size:21px;font-weight:800;color:#202124;margin-bottom:4px}
-.g-sub{font-size:13px;color:#5f6368;margin-bottom:26px}
-.g-field{width:100%;border:1.5px solid #dadce0;border-radius:9px;padding:13px 14px;font-size:15px;outline:none;margin-bottom:12px;font-family:inherit;transition:border-color .2s}
-.g-field:focus{border-color:#1a73e8;box-shadow:0 0 0 3px rgba(26,115,232,.12)}
-.g-btn{width:100%;padding:13px;background:#1a73e8;border:none;border-radius:9px;color:#fff;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;transition:background .2s;margin-top:4px}
-.g-btn:hover{background:#1557b0}
-.g-btn:disabled{background:#aac7f5;cursor:not-allowed}
-.g-cancel{background:none;border:none;color:#5f6368;font-size:14px;cursor:pointer;margin-top:12px;font-family:inherit}
-.g-cancel:hover{text-decoration:underline}
-.g-err{color:#d93025;font-size:13px;background:#fce8e6;border-radius:7px;padding:10px 12px;margin-bottom:12px}
-
-/* SHELL */
-.shell{max-width:960px;margin:0 auto;padding:24px 20px}
-.topbar{display:flex;align-items:center;justify-content:space-between;background:var(--s1);border:1px solid var(--b1);border-radius:var(--radius);padding:14px 20px;margin-bottom:22px;flex-wrap:wrap;gap:10px}
-.topbar-left{display:flex;align-items:center;gap:10px}
-.avatar{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px;flex-shrink:0}
-.av-t{background:linear-gradient(135deg,var(--blue),#1e5ad4);color:#fff}
-.av-s{background:linear-gradient(135deg,var(--teal),var(--teal2));color:#000}
-.user-name{font-weight:700;font-size:15px}
-.user-role{font-size:12px;color:var(--muted)}
-.ip-chip{font-size:11px;font-family:'IBM Plex Mono',monospace;background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:4px 10px;color:var(--teal)}
-.logout-btn{background:none;border:1px solid var(--b1);border-radius:8px;padding:7px 14px;color:var(--muted);font-family:inherit;font-size:13px;cursor:pointer;transition:all .2s}
-.logout-btn:hover{border-color:var(--red);color:var(--red)}
-
-/* CARDS */
-.card{background:var(--s1);border:1px solid var(--b1);border-radius:18px;padding:28px;margin-bottom:18px;animation:slideUp .3s ease}
-.card-title{font-size:18px;font-weight:800;margin-bottom:20px;display:flex;align-items:center;gap:9px}
-.field{margin-bottom:16px}
-.field label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:8px}
-.field input,.field select,.field textarea{width:100%;background:var(--s2);border:1.5px solid var(--b1);border-radius:var(--radius);padding:12px 16px;color:var(--txt);font-family:inherit;font-size:15px;outline:none;transition:border-color .2s,box-shadow .2s;resize:vertical}
-.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(0,229,200,.1)}
-.field textarea{min-height:180px;line-height:1.7}
-.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-
-/* FILE UPLOAD */
-.upload-zone{border:2px dashed var(--b2);border-radius:var(--radius);padding:26px;text-align:center;cursor:pointer;transition:all .2s;background:var(--s2);position:relative;overflow:hidden}
-.upload-zone:hover,.upload-zone.drag{border-color:var(--teal);background:rgba(0,229,200,.04)}
-.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
-.upload-icon{font-size:34px;margin-bottom:10px}
-.upload-hint{font-size:14px;color:var(--txt);font-weight:600;margin-bottom:4px}
-.upload-types{font-size:12px;color:var(--muted)}
-.file-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-.file-chip{display:flex;align-items:center;gap:7px;background:var(--s1);border:1px solid var(--b1);border-radius:9px;padding:6px 12px;font-size:13px;max-width:200px}
-.file-chip img{width:38px;height:38px;object-fit:cover;border-radius:6px;flex-shrink:0}
-.file-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
-.rm-btn{background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:0;flex-shrink:0}
-
-/* BUTTONS */
-.btn-teal{padding:13px 28px;background:linear-gradient(135deg,var(--teal),var(--teal2));border:none;border-radius:var(--radius);color:#000;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer;transition:all .2s;box-shadow:0 4px 18px rgba(0,229,200,.28)}
-.btn-teal:hover{transform:translateY(-1px);box-shadow:0 8px 28px rgba(0,229,200,.38)}
-.btn-teal:disabled{opacity:.4;cursor:not-allowed;transform:none}
-.btn-blue{padding:11px 20px;background:linear-gradient(135deg,var(--blue),#1e5ad4);border:none;border-radius:var(--radius);color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s}
-.btn-blue:hover{transform:translateY(-1px)}
-.btn-red{padding:9px 18px;background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.35);border-radius:9px;color:var(--red);font-family:inherit;font-size:13px;cursor:pointer;transition:all .2s}
-.btn-red:hover{background:rgba(244,63,94,.2)}
-
-/* BADGES */
-.badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px}
-.bg{background:rgba(16,185,129,.13);color:var(--green);border:1px solid rgba(16,185,129,.3)}
-.br{background:rgba(244,63,94,.13);color:var(--red);border:1px solid rgba(244,63,94,.3)}
-.by{background:rgba(251,191,36,.13);color:var(--gold);border:1px solid rgba(251,191,36,.3)}
-.bb{background:rgba(59,142,255,.13);color:var(--blue);border:1px solid rgba(59,142,255,.3)}
-.bo{background:rgba(251,146,60,.13);color:var(--orange);border:1px solid rgba(251,146,60,.3)}
-
-/* TABLE */
-.tbl{width:100%;border-collapse:collapse;font-size:14px}
-.tbl th{padding:10px 14px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--b1);font-size:12px}
-.tbl td{padding:12px 14px;border-bottom:1px solid rgba(27,45,79,.5);vertical-align:middle}
-.tbl tr:last-child td{border-bottom:none}
-.tbl tr:hover td{background:rgba(255,255,255,.02)}
-.mono{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted)}
-
-/* EXAM */
-.exam-shell{max-width:840px;margin:0 auto;padding:20px}
-.exam-hdr{display:flex;align-items:center;justify-content:space-between;background:var(--s1);border:1px solid var(--b1);border-radius:var(--radius);padding:14px 20px;margin-bottom:14px;flex-wrap:wrap;gap:10px}
-.timer{font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:600;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:8px 20px;color:var(--teal);min-width:92px;text-align:center}
-.timer.warn{color:var(--gold);border-color:rgba(251,191,36,.4)}
-.timer.danger{color:var(--red);border-color:rgba(244,63,94,.4);animation:pulse 1s ease infinite}
-.prog-wrap{background:var(--s1);border:1px solid var(--b1);border-radius:var(--radius);padding:12px 18px;margin-bottom:14px;display:flex;align-items:center;gap:12px}
-.prog-track{flex:1;height:7px;background:var(--s2);border-radius:999px;overflow:hidden}
-.prog-fill{height:100%;background:linear-gradient(90deg,var(--teal2),var(--teal));border-radius:999px;transition:width .4s;box-shadow:0 0 10px rgba(0,229,200,.4)}
-.viol-bar{background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.3);border-radius:var(--radius);padding:10px 16px;margin-bottom:12px;font-size:13px;color:var(--red);display:flex;align-items:center;justify-content:space-between}
-.ss-bar{background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.3);border-radius:var(--radius);padding:10px 16px;margin-bottom:12px;font-size:13px;color:var(--orange);display:flex;align-items:center;gap:8px}
-.q-card{background:var(--s1);border:1px solid var(--b1);border-radius:18px;padding:30px;box-shadow:0 8px 32px rgba(0,0,0,.3);animation:slideUp .3s ease}
-.q-meta{display:flex;align-items:center;gap:8px;margin-bottom:18px;flex-wrap:wrap}
-.q-num{background:linear-gradient(135deg,var(--teal),var(--teal2));color:#000;font-weight:800;font-size:12px;border-radius:8px;padding:4px 12px}
-.q-level{font-size:12px;color:var(--muted);background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:3px 10px}
-.q-text{font-size:19px;font-weight:600;line-height:1.75;margin-bottom:22px}
-.q-img{width:100%;max-height:260px;object-fit:contain;border-radius:10px;border:1px solid var(--b1);margin-bottom:20px;background:var(--s2)}
-.opts{display:flex;flex-direction:column;gap:11px}
-.opt{width:100%;background:var(--s2);border:1.5px solid var(--b1);border-radius:var(--radius);padding:15px 18px;color:var(--txt);font-family:inherit;font-size:16px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:12px}
-.opt:hover:not(:disabled){border-color:var(--teal);background:rgba(0,229,200,.06);transform:translateX(-2px)}
-.opt.sel{border-color:var(--teal);background:rgba(0,229,200,.08);box-shadow:0 0 0 3px rgba(0,229,200,.07)}
-.opt.ok{border-color:var(--green);background:rgba(16,185,129,.09)}
-.opt.bad{border-color:var(--red);background:rgba(244,63,94,.09)}
-.opt-letter{width:30px;height:30px;border-radius:50%;background:var(--b1);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;transition:background .2s}
-.opt.sel .opt-letter{background:var(--teal);color:#000}
-.expla{background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.25);border-radius:12px;padding:16px;margin-top:18px;font-size:14px;line-height:1.7;color:#9de8cc;animation:fadeIn .3s}
-.nav-row{display:flex;justify-content:space-between;align-items:center;margin-top:22px;gap:10px;flex-wrap:wrap}
-.btn-confirm{padding:12px 26px;background:linear-gradient(135deg,var(--teal),var(--teal2));border:none;border-radius:var(--radius);color:#000;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer;transition:all .2s;box-shadow:0 4px 16px rgba(0,229,200,.28)}
-.btn-confirm:hover{transform:translateY(-1px)}
-.btn-confirm:disabled{opacity:.35;cursor:not-allowed;transform:none}
-
-/* SECURITY OVERLAY */
-.sec-ov{position:fixed;inset:0;z-index:9999;background:rgba(6,9,15,.97);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px;animation:fadeIn .2s;text-align:center;padding:28px}
-.sec-icon{font-size:72px}
-.sec-title{font-size:26px;font-weight:900;color:var(--red)}
-.sec-msg{color:var(--muted);max-width:440px;font-size:15px;line-height:1.7}
-
-/* EXAM PROTECTION - MOBILE & DESKTOP */
-.exam-protected{user-select:none;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;-webkit-touch-callout:none;-webkit-user-drag:none}
-.exam-protected *{user-select:none;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none}
-
-
-/* RESULTS */
-.res-wrap{max-width:700px;margin:0 auto;padding:28px 20px}
-.res-card{background:var(--s1);border:1px solid var(--b1);border-radius:20px;padding:40px;text-align:center;box-shadow:var(--glow-t);animation:slideUp .5s ease}
-.score-arc{width:150px;height:150px;border-radius:50%;margin:0 auto 24px;position:relative;display:flex;align-items:center;justify-content:center}
-.score-arc::before{content:'';position:absolute;inset:14px;background:var(--s1);border-radius:50%}
-.score-num{position:relative;z-index:1;font-size:36px;font-weight:900}
-.stats-row{display:flex;gap:12px;justify-content:center;margin-bottom:24px;flex-wrap:wrap}
-.stat-box{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:14px 18px;min-width:88px}
-.stat-val{font-size:24px;font-weight:900}
-.stat-lbl{font-size:11px;color:var(--muted);margin-top:3px}
-.ans-item{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:flex-start;gap:10px;font-size:14px;line-height:1.6}
-
-/* LOADING */
-.loading-ctr{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;text-align:center;padding:24px}
-.spinner{width:52px;height:52px;border:3px solid var(--b1);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite}
-.loading-txt{color:var(--muted);font-size:15px}
-.dot::after{content:'...';animation:dots 1.2s steps(4,end) infinite}
-@keyframes dots{0%{content:'.'}33%{content:'..'}66%{content:'...'}100%{content:'.'}}
-
-/* MISC */
-.shield-row{display:flex;align-items:center;gap:8px;background:rgba(0,229,200,.06);border:1px solid rgba(0,229,200,.2);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--teal);margin-top:14px}
-.ip-reset-note{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:10px;padding:11px 14px;font-size:13px;color:var(--gold);display:flex;align-items:center;gap:8px;margin-top:10px}
-.divider{height:1px;background:var(--b1);margin:22px 0}
-.empty{color:var(--muted);text-align:center;padding:40px;font-size:15px}
-
-@keyframes slideUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-@keyframes spin{to{transform:rotate(360deg)}}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-@keyframes ssflash{0%{opacity:1}100%{opacity:0}}
-`;
-
-/* ═══════════════════════════════════════════════════════
    LANG SWITCHER
 ═══════════════════════════════════════════════════════ */
 function LangSwitcher({ lang, setLang }) {
@@ -584,11 +383,76 @@ function Credits({ t }) {
 /* ═══════════════════════════════════════════════════════
    GOOGLE LOGIN MODAL
 ═══════════════════════════════════════════════════════ */
-function GoogleModal({ role, t, onSuccess, onClose }) {
+function GoogleModal({ role, t, onSuccess, onClose, googleReady, googleClientId }) {
   const [name, setName]   = useState("");
   const [email, setEmail] = useState("");
   const [err, setErr]     = useState("");
   const [busy, setBusy]   = useState(false);
+  const [googleError, setGoogleError] = useState("");
+  const googleBtnRef = useRef(null);
+
+  const handleGoogleResponse = async (response) => {
+    if (!response?.credential) {
+      setGoogleError(t.apiError || "Google login failed.");
+      return;
+    }
+    const payload = parseJwt(response.credential);
+    if (!payload?.email) {
+      setGoogleError(t.badEmail);
+      return;
+    }
+    const profile = { name: payload.name || name.trim(), email: payload.email };
+    if (role === "student") {
+      const reg = await store.get("student-registry") || {};
+      const ip  = await getIP();
+      const fp  = getFingerprint();
+      const ex  = reg[profile.email];
+      if (ex) {
+        const age = Date.now() - (ex.registeredAt || 0);
+        if (age >= IP_LOCK_MS) {
+          reg[profile.email] = { ...ex, ip, fp, registeredAt: Date.now(), ipResetAt: nowStr() };
+          if (ex.status !== "done" && ex.status !== "blocked") reg[profile.email].status = "active";
+          await store.set("student-registry", reg);
+          if (ex.status === "done") { setErr(t.alreadyDone); setBusy(false); return; }
+          if (ex.status === "blocked") { setErr(t.blocked); setBusy(false); return; }
+          onSuccess({ name: ex.name, email: profile.email, ip, fp }); setBusy(false); return;
+        }
+        if (ex.ip !== ip) {
+          const remaining = Math.ceil((IP_LOCK_MS - age) / 3600000);
+          setErr(t.blockedIP(ex.ip, remaining)); setBusy(false); return;
+        }
+        if (ex.status === "blocked") { setErr(t.blocked); setBusy(false); return; }
+        if (ex.status === "done") { setErr(t.alreadyDone); setBusy(false); return; }
+        onSuccess({ name: ex.name, email: profile.email, ip, fp }); setBusy(false); return;
+      }
+      reg[profile.email] = { name: profile.name.trim(), email: profile.email, ip, fp, registeredAt: Date.now(), status: "active" };
+      await store.set("student-registry", reg);
+      onSuccess({ name: profile.name.trim(), email: profile.email, ip, fp });
+      setBusy(false);
+      return;
+    }
+    onSuccess(profile);
+  };
+
+  useEffect(() => {
+    if (!googleReady || !googleClientId || !googleBtnRef.current || !window.google) return;
+    try {
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: handleGoogleResponse,
+        ux_mode: "popup",
+      });
+      window.google.accounts.id.renderButton(googleBtnRef.current, {
+        type: "standard",
+        theme: "outline",
+        size: "large",
+        text: "continue_with",
+      });
+      window.google.accounts.id.prompt();
+    } catch (e) {
+      setGoogleError(t.apiError || "Google login not available.");
+    }
+  }, [googleReady, googleClientId, role, t]);
 
   const submit = async () => {
     if (!name.trim() || !email.trim()) { setErr(t.fillAll); return; }
@@ -639,6 +503,15 @@ function GoogleModal({ role, t, onSuccess, onClose }) {
         <div className="g-title" style={{textAlign:"center"}}>{t.googleLogin}</div>
         <div className="g-sub"  style={{textAlign:"center"}}>{role==="teacher" ? t.teacherGate : t.studentGate}</div>
         {err && <div className="g-err">{err}</div>}
+        {googleReady && googleClientId ? (
+          <>
+            <div ref={googleBtnRef} style={{marginBottom:18}} />
+            {googleError && <div className="g-err">{googleError}</div>}
+            <div className="google-fallback-note">{t.googleLogin} متاح الآن. إذا لم يعمل، استخدم التسجيل اليدوي أدناه.</div>
+          </>
+        ) : (
+          <div className="google-fallback-note">{t.googleLogin} غير مفعّل في هذا الوقت. يمكنك استخدام الحقول اليدوية أدناه.</div>
+        )}
         <input className="g-field" style={{direction:t.dir}} placeholder={t.fullName} value={name}  onChange={e=>setName(e.target.value)}  />
         <input className="g-field" style={{direction:t.dir}} type="email" placeholder={t.email}    value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} />
         <button className="g-btn" onClick={submit} disabled={busy}>{busy ? t.checking : t.continue}</button>
@@ -658,6 +531,7 @@ function TeacherDash({ user, lang, t, onLogout }) {
   const [saving,   setSaving]   = useState(false);
   const [students, setStudents] = useState([]);
   const [results,  setResults]  = useState({});
+  const [detailEmail, setDetailEmail] = useState(null);
 
   const load = useCallback(async () => {
     const c = await store.get("exam-config");
@@ -665,15 +539,14 @@ function TeacherDash({ user, lang, t, onLogout }) {
     const reg = await store.get("student-registry") || {};
     const res = await store.get("student-results")  || {};
     setStudents(Object.values(reg)); setResults(res);
-    
-    const storageListener = () => {
-      load();
-    };
-    window.addEventListener("storage", storageListener);
-    return () => window.removeEventListener("storage", storageListener);
   }, []);
 
-  useEffect(()=>{ load(); },[load]);
+  useEffect(()=>{
+    load();
+    const storageListener = () => { load(); };
+    window.addEventListener("storage", storageListener);
+    return () => window.removeEventListener("storage", storageListener);
+  }, [load]);
 
   const save = async () => {
     if (!cfg.subject.trim()) return;
@@ -957,9 +830,45 @@ function TeacherDash({ user, lang, t, onLogout }) {
                     <div>{t.screenshots}: {r.ssAttempts||0}</div>
                     <div style={{fontSize:11}}>{r.completedAt}</div>
                   </div>
+                  <div style={{display:"flex",gap:8}}>
+                    <button className="btn-blue" onClick={()=>setDetailEmail(email)}>{t.results}</button>
+                  </div>
                 </div>
               );
             })}
+            {detailEmail && (
+              <div className="card" style={{marginTop:14}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                  <div>
+                    <div style={{fontSize:16,fontWeight:700}}>{students.find(x=>x.email===detailEmail)?.name||detailEmail}</div>
+                    <div className="mono" style={{marginTop:4}}>{detailEmail}</div>
+                  </div>
+                  <button className="btn-red" onClick={()=>setDetailEmail(null)}>{t.cancel}</button>
+                </div>
+                <div style={{marginTop:16,display:"grid",gap:12}}>
+                  {(results[detailEmail]?.questions||[]).map((q,i)=>(
+                    <div key={i} className="ans-item" style={{flexDirection:t.dir==="rtl"?"row-reverse":"row"}}>
+                      <div style={{fontSize:16,fontWeight:700,flexShrink:0}}>{t.question} {i+1}</div>
+                      <div style={{flex:1,textAlign:t.dir==="rtl"?"right":"left"}}>
+                        <div style={{fontSize:13,marginBottom:6}}>{q.text}</div>
+                        <div style={{fontSize:13,color:"var(--muted)"}}>
+                          {(() => {
+                            const answer = results[detailEmail]?.answers?.[i];
+                            if (!answer) return t.notAnswered;
+                            if (typeof answer === 'object') {
+                              if (answer.type === 'mc') return q.options[answer.value] ?? t.notAnswered;
+                              if (answer.type === 'text') return answer.value || t.notAnswered;
+                              if (answer.type === 'image') return answer.value ? <img src={answer.value} alt="student-upload" style={{maxWidth:320,marginTop:8,borderRadius:8}} /> : t.notAnswered;
+                            }
+                            return answer;
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </>}
         </div>
       )}
@@ -1358,6 +1267,19 @@ export default function App() {
   const [role,     setRole]     = useState(null);
   const [showAuth, setShowAuth] = useState(false);
   const [user,     setUser]     = useState(null);
+  const [googleReady, setGoogleReady] = useState(false);
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) return;
+    if (window.google) { setGoogleReady(true); return; }
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = () => setGoogleReady(true);
+    script.onerror = () => setGoogleReady(false);
+    document.body.appendChild(script);
+  }, []);
 
   const t      = T[lang];
   const fontCls = t.dir==="rtl" ? "font-ar" : "font-en";
@@ -1367,7 +1289,6 @@ export default function App() {
 
   return (
     <>
-      <style>{CSS}</style>
       <div className={`root ${fontCls}`} style={{direction:t.dir}}>
         <LangSwitcher lang={lang} setLang={setLang} />
 
@@ -1398,7 +1319,14 @@ export default function App() {
         )}
 
         {showAuth && (
-          <GoogleModal role={role} t={t} onSuccess={login} onClose={()=>{setShowAuth(false);setRole(null)}}/>
+          <GoogleModal
+            role={role}
+            t={t}
+            googleReady={googleReady}
+            googleClientId={GOOGLE_CLIENT_ID}
+            onSuccess={login}
+            onClose={()=>{setShowAuth(false);setRole(null)}}
+          />
         )}
 
         {user && role==="teacher" && <TeacherDash user={user} lang={lang} t={t} onLogout={logout}/>}

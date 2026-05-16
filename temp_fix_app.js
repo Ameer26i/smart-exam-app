@@ -1,4 +1,32 @@
-@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&family=Inter:wght@400;600;700;800;900&family=IBM+Plex+Mono:wght@400;600&display=swap');
+const fs = require('fs');
+const path = require('path');
+const appPath = path.join('src', 'App.jsx');
+let text = fs.readFileSync(appPath, 'utf8');
+if (!text.includes('import "./App.css";')) {
+  text = text.replace(
+    'import { useState, useEffect, useRef, useCallback } from "react";\r\nimport startImage from "./assets/Al farabe.png";\r\n',
+    'import { useState, useEffect, useRef, useCallback } from "react";\r\nimport "./App.css";\r\nimport startImage from "./assets/Al farabe.png";\r\n'
+  );
+}
+const cssStart = '/* ═══════════════════════════════════════════════════════\r\n   CSS\r\n═══════════════════════════════════════════════════════ */\r\nconst CSS = `\r\n';
+const start = text.indexOf(cssStart);
+if (start !== -1) {
+  const end = text.indexOf('`;\r\n', start + cssStart.length);
+  if (end !== -1) {
+    text = text.slice(0, start) + text.slice(end + 3);
+  }
+}
+text = text.replace('      <style>{CSS}</style>\r\n', '');
+const oldState = `  const [tab,      setTab]      = useState("setup");\r\n  const [cfg,      setCfg]      = useState({ subject:"", count:10, duration:20, questions: normalizeQuestionArray([], 10) });\r\n  const [saved,    setSaved]    = useState(false);\r\n  const [saving,   setSaving]   = useState(false);\r\n  const [students, setStudents] = useState([]);\r\n  const [results,  setResults]  = useState({});\r\n`;
+const newState = oldState + `  const [detailEmail, setDetailEmail] = useState(null);\r\n`;
+text = text.replace(oldState, newState);
+const oldLoad = `  const load = useCallback(async () => {\r\n    const c = await store.get("exam-config");\r\n    if (c) { setCfg({ ...c, questions: normalizeQuestionArray(c.questions, c.count || 10) }); setSaved(true); }\r\n    const reg = await store.get("student-registry") || {};\r\n    const res = await store.get("student-results")  || {};\r\n    setStudents(Object.values(reg)); setResults(res);\r\n    \r\n    const storageListener = () => {\r\n      load();\r\n    };\r\n    window.addEventListener("storage", storageListener);\r\n    return () => window.removeEventListener("storage", storageListener);\r\n  }, []);\r\n\r\n  useEffect(()=>{ load(); },[load]);\r\n`;
+const newLoad = `  const load = useCallback(async () => {\r\n    const c = await store.get("exam-config");\r\n    if (c) { setCfg({ ...c, questions: normalizeQuestionArray(c.questions, c.count || 10) }); setSaved(true); }\r\n    const reg = await store.get("student-registry") || {};\r\n    const res = await store.get("student-results")  || {};\r\n    setStudents(Object.values(reg)); setResults(res);\r\n  }, []);\r\n\r\n  useEffect(()=>{\r\n    load();\r\n    const storageListener = () => { load(); };\r\n    window.addEventListener("storage", storageListener);\r\n    return () => window.removeEventListener("storage", storageListener);\r\n  }, [load]);\r\n`;
+text = text.replace(oldLoad, newLoad);
+const oldResults = '                  <div style={{fontSize:12,color:"var(--muted)"}}>\r\n                    <div>{t.violations}: {r.violations||0}</div>\r\n                    <div>{t.screenshots}: {r.ssAttempts||0}</div>\r\n                    <div style={{fontSize:11}}>{r.completedAt}</div>\r\n                  </div>\r\n                </div>\r\n              );\r\n            })}\r\n          </>}\r\n';
+const newResults = '                  <div style={{fontSize:12,color:"var(--muted)"}}>\r\n                    <div>{t.violations}: {r.violations||0}</div>\r\n                    <div>{t.screenshots}: {r.ssAttempts||0}</div>\r\n                    <div style={{fontSize:11}}>{r.completedAt}</div>\r\n                  </div>\r\n                  <div style={{display:"flex",gap:8}}>\r\n                    <button className="btn-blue" onClick={()=>setDetailEmail(email)}>{t.results}</button>\r\n                  </div>\r\n                </div>\r\n              );\r\n            })}\r\n            {detailEmail && (\r\n              <div className="card" style={{marginTop:14}}>\r\n                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>\r\n                  <div>\r\n                    <div style={{fontSize:16,fontWeight:700}}>{students.find(x=>x.email===detailEmail)?.name||detailEmail}</div>\r\n                    <div className="mono" style={{marginTop:4}}>{detailEmail}</div>\r\n                  </div>\r\n                  <button className="btn-red" onClick={()=>setDetailEmail(null)}>{t.cancel}</button>\r\n                </div>\r\n                <div style={{marginTop:16,display:"grid",gap:12}}>\r\n                  {(results[detailEmail]?.questions||[]).map((q,i)=>(\r\n                    <div key={i} className="ans-item" style={{flexDirection:t.dir===\"rtl\"?\"row-reverse\":\"row\"}}>\r\n                      <div style={{fontSize:16,fontWeight:700,flexShrink:0}}>{t.question} {i+1}</div>\r\n                      <div style={{flex:1,textAlign:t.dir===\"rtl\"?\"right\":\"left\"}}>\r\n                        <div style={{fontSize:13,marginBottom:6}}>{q.text}</div>\r\n                        <div style={{fontSize:13,color:\"var(--muted)\"}}>\r\n                          {(() => {\r\n                            const answer = results[detailEmail]?.answers?.[i];\r\n                            if (!answer) return t.notAnswered;\r\n                            if (typeof answer === 'object') {\r\n                              if (answer.type === 'mc') return q.options[answer.value] ?? t.notAnswered;\r\n                              if (answer.type === 'text') return answer.value || t.notAnswered;\r\n                              if (answer.type === 'image') return answer.value ? <img src={answer.value} alt=\"student-upload\" style={{maxWidth:320,marginTop:8,borderRadius:8}} /> : t.notAnswered;\r\n                            }\r\n                            return answer;\r\n                          })()}\r\n                        </div>\r\n                      </div>\r\n                    </div>\r\n                  ))}\r\n                </div>\r\n              </div>\r\n            )}\r\n          </>}\r\n';
+text = text.replace(oldResults, newResults);
+const cssContent = `@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&family=Inter:wght@400;600;700;800;900&family=IBM+Plex+Mono:wght@400;600&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#06090f;--s1:#0c1220;--s2:#111a2e;
@@ -8,13 +36,11 @@
   --txt:#ddeeff;--muted:#6b8db5;--radius:14px;
   --glow-t:0 0 32px rgba(0,229,200,.15);
 }
-html, body{background:var(--bg);color:var(--txt);min-height:100vh;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-body{margin:0}
+body{background:var(--bg);color:var(--txt);min-height:100vh}
 .font-ar{font-family:'Tajawal',sans-serif}
 .font-en{font-family:'Inter',sans-serif}
 
-.exam-protected{-webkit-user-select:none;-moz-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-user-drag:none;touch-action:none}
-.exam-protected *{-webkit-user-select:none;-moz-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-user-drag:none}
+.exam-protected{-webkit-user-select:none;-moz-user-select:none;user-select:none;-webkit-touch-callout:none}
 @media print{.exam-protected,.root{display:none!important}}
 
 .watermark-layer{position:fixed;inset:0;pointer-events:none;z-index:8000;background-repeat:repeat;background-size:360px 170px}
@@ -54,7 +80,7 @@ body{margin:0}
 .dev-link{display:flex;align-items:center;gap:7px;text-decoration:none;
   background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:8px 14px;transition:all .2s}
 .dev-link:hover{border-color:var(--purple);box-shadow:0 0 16px rgba(167,139,250,.2);transform:translateY(-2px)}
-.dev-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:#fff}
+.dev-avatar{width:32px;height:32;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:#fff}
 .dev-name{font-weight:700;font-size:14px;color:var(--txt)}
 .dev-ig{font-size:11px;color:var(--purple)}
 .ig-icon{font-size:16px}
@@ -73,15 +99,12 @@ body{margin:0}
 .g-cancel{background:none;border:none;color:#5f6368;font-size:14px;cursor:pointer;margin-top:12px;font-family:inherit}
 .g-cancel:hover{text-decoration:underline}
 .g-err{color:#d93025;font-size:13px;background:#fce8e6;border-radius:7px;padding:10px 12px;margin-bottom:12px}
-.google-fallback-note{font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.6;text-align:center}
-.google-login-section{display:flex;justify-content:center;margin-bottom:16px}
-.google-login-section > div{width:100%}
 
 /* SHELL */
 .shell{max-width:960px;margin:0 auto;padding:24px 20px}
 .topbar{display:flex;align-items:center;justify-content:space-between;background:var(--s1);border:1px solid var(--b1);border-radius:var(--radius);padding:14px 20px;margin-bottom:22px;flex-wrap:wrap;gap:10px}
 .topbar-left{display:flex;align-items:center;gap:10px}
-.avatar{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px;flex-shrink:0}
+.avatar{width:38px;height:38;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px;flex-shrink:0}
 .av-t{background:linear-gradient(135deg,var(--blue),#1e5ad4);color:#fff}
 .av-s{background:linear-gradient(135deg,var(--teal),var(--teal2));color:#000}
 .user-name{font-weight:700;font-size:15px}
@@ -109,7 +132,7 @@ body{margin:0}
 .upload-types{font-size:12px;color:var(--muted)}
 .file-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .file-chip{display:flex;align-items:center;gap:7px;background:var(--s1);border:1px solid var(--b1);border-radius:9px;padding:6px 12px;font-size:13px;max-width:200px}
-.file-chip img{width:38px;height:38px;object-fit:cover;border-radius:6px;flex-shrink:0}
+.file-chip img{width:38px;height:38;object-fit:cover;border-radius:6px;flex-shrink:0}
 .file-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
 .rm-btn{background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:0;flex-shrink:0}
 
@@ -197,16 +220,7 @@ body{margin:0}
 .spinner{width:52px;height:52px;border:3px solid var(--b1);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite}
 .loading-txt{color:var(--muted);font-size:15px}
 .dot::after{content:'...';animation:dots 1.2s steps(4,end) infinite}
-@keyframes dots{0%{content:'.'}33%{content:'..'}66%{content:'...'}100%{content:'.'}}
-
-/* MISC */
-.shield-row{display:flex;align-items:center;gap:8px;background:rgba(0,229,200,.06);border:1px solid rgba(0,229,200,.2);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--teal);margin-top:14px}
-.ip-reset-note{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:10px;padding:11px 14px;font-size:13px;color:var(--gold);display:flex;align-items:center;gap:8px;margin-top:10px}
-.divider{height:1px;background:var(--b1);margin:22px 0}
-.empty{color:var(--muted);text-align:center;padding:40px;font-size:15px}
-
-@keyframes slideUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-@keyframes spin{to{transform:rotate(360deg)}}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-@keyframes ssflash{0%{opacity:1}100%{opacity:0}}
+@keyframes dots{0%{content:'.'}33%{content:'..'}66%{content:'...'}100%{content:'.'}}`;
+fs.writeFileSync(path.join('src', 'App.css'), cssContent, 'utf8');
+fs.writeFileSync(appPath, text, 'utf8');
+console.log('patched');
