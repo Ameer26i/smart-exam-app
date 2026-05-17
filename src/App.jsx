@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import startImage from "./assets/Al farabe.png";
 import "./App.css";
+import { loginWithGoogle } from "./assets/firebase";
 
 /* ═══════════════════════════════════════════════════════
    TRANSLATIONS
@@ -434,6 +435,63 @@ function GoogleModal({ role, t, onSuccess, onClose, googleReady, googleClientId 
     onSuccess(profile);
   };
 
+  const handleFirebaseGoogleLogin = async () => {
+    setBusy(true);
+    setErr("");
+    try {
+      const result = await loginWithGoogle();
+      if (!result.success) {
+        setErr(result.error || t.apiError || "Google login failed");
+        setBusy(false);
+        return;
+      }
+      const user = result.user;
+      setName(user.displayName || "");
+      setEmail(user.email);
+      // Auto-submit with the Firebase user data
+      setTimeout(() => {
+        if (role === "student") {
+          const reg = store.get("student-registry") || {};
+          const processLogin = async () => {
+            const reg = await store.get("student-registry") || {};
+            const ip = await getIP();
+            const fp = getFingerprint();
+            const ex = reg[user.email];
+            if (ex) {
+              const age = Date.now() - (ex.registeredAt || 0);
+              if (age >= IP_LOCK_MS) {
+                reg[user.email] = { ...ex, ip, fp, registeredAt: Date.now(), ipResetAt: nowStr() };
+                if (ex.status !== "done" && ex.status !== "blocked") reg[user.email].status = "active";
+                await store.set("student-registry", reg);
+                if (ex.status === "done") { setErr(t.alreadyDone); setBusy(false); return; }
+                if (ex.status === "blocked") { setErr(t.blocked); setBusy(false); return; }
+                onSuccess({ name: ex.name, email: user.email, ip, fp }); setBusy(false); return;
+              }
+              if (ex.ip !== ip) {
+                const remaining = Math.ceil((IP_LOCK_MS - age) / 3600000);
+                setErr(t.blockedIP(ex.ip, remaining)); setBusy(false); return;
+              }
+              if (ex.status === "blocked") { setErr(t.blocked); setBusy(false); return; }
+              if (ex.status === "done") { setErr(t.alreadyDone); setBusy(false); return; }
+              onSuccess({ name: ex.name, email: user.email, ip, fp }); setBusy(false); return;
+            }
+            reg[user.email] = { name: user.displayName || user.email, email: user.email, ip, fp, registeredAt: Date.now(), status: "active" };
+            await store.set("student-registry", reg);
+            onSuccess({ name: user.displayName || user.email, email: user.email, ip, fp });
+            setBusy(false);
+          };
+          processLogin();
+        } else {
+          onSuccess({ name: user.displayName || user.email, email: user.email });
+          setBusy(false);
+        }
+      }, 100);
+    } catch (error) {
+      setErr(error.message || t.apiError || "Google login failed");
+      setBusy(false);
+    }
+  };
+
   useEffect(() => {
     if (!googleReady || !googleClientId || !googleBtnRef.current || !window.google) return;
     try {
@@ -503,18 +561,14 @@ function GoogleModal({ role, t, onSuccess, onClose, googleReady, googleClientId 
         <div className="g-title" style={{textAlign:"center"}}>{t.googleLogin}</div>
         <div className="g-sub"  style={{textAlign:"center"}}>{role==="teacher" ? t.teacherGate : t.studentGate}</div>
         {err && <div className="g-err">{err}</div>}
-        {googleReady && googleClientId ? (
-          <>
-            <div ref={googleBtnRef} style={{marginBottom:18}} />
-            {googleError && <div className="g-err">{googleError}</div>}
-            <div className="google-fallback-note">{t.googleLogin} متاح الآن. إذا لم يعمل، استخدم التسجيل اليدوي أدناه.</div>
-          </>
-        ) : (
-          <div className="google-fallback-note">{t.googleLogin} غير مفعّل في هذا الوقت. يمكنك استخدام الحقول اليدوية أدناه.</div>
-        )}
-        <input className="g-field" style={{direction:t.dir}} placeholder={t.fullName} value={name}  onChange={e=>setName(e.target.value)}  />
-        <input className="g-field" style={{direction:t.dir}} type="email" placeholder={t.email}    value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} />
-        <button className="g-btn" onClick={submit} disabled={busy}>{busy ? t.checking : t.continue}</button>
+        <button 
+          className="g-btn" 
+          style={{marginBottom: 10, backgroundColor: "#4285F4", borderColor: "#4285F4", marginTop: 20}}
+          onClick={handleFirebaseGoogleLogin} 
+          disabled={busy}
+        >
+          {busy ? "🔄 " + t.checking : "🔐 " + t.googleLogin}
+        </button>
         <br/><button className="g-cancel" onClick={onClose}>{t.cancel}</button>
       </div>
     </div>
