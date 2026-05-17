@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+﻿import { useState, useEffect, useRef, useCallback } from "react";
 import startImage from "./assets/Al farabe.png";
 import "./App.css";
 import { loginWithGoogle } from "./assets/firebase";
@@ -59,6 +59,7 @@ const T = {
     correct: "صح", wrong: "خطأ", grade: "التقدير", violations: "مخالفات", screenshots: "لقطات",
     noExam: "لا يوجد امتحان نشط", noExamSub: "انتظر المدرس أو تحقق من الاتصال",
     retry: "🔄 إعادة المحاولة",
+    refresh: "🔄 تحديث",
     readyTitle: "جاهز للامتحان", questions: "سؤال", minutes: "دقيقة",
     ipLock: "IP مسجّل:",
     ipResetNote: "⏱️ IP مقفول لـ 3 ساعات — يُجدَّد تلقائياً بعدها",
@@ -149,6 +150,7 @@ const T = {
     correct: "Correct", wrong: "Wrong", grade: "Grade", violations: "Violations", screenshots: "Screenshots",
     noExam: "No active exam", noExamSub: "Wait for your teacher or check your connection",
     retry: "🔄 Retry",
+    refresh: "🔄 Refresh",
     readyTitle: "Ready for exam", questions: "questions", minutes: "minutes",
     ipLock: "Registered IP:",
     ipResetNote: "⏱️ IP locked for 3 hours — auto-renewed after that",
@@ -665,6 +667,7 @@ function TeacherDash({ user, lang, t, onLogout }) {
           <div><div className="user-name">{user.name}</div><div className="user-role">{t.teacher} · {user.email}</div></div>
         </div>
         <div style={{display:"flex",gap:8}}>
+          <button className="btn-blue" onClick={load}>{t.refresh}</button>
           <button className="btn-blue" onClick={()=>{
             const nextTab = tab==="setup"?"students":"setup";
             setTab(nextTab);
@@ -839,7 +842,7 @@ function TeacherDash({ user, lang, t, onLogout }) {
 
       {tab==="students" && (
         <div className="card">
-          <div className="card-title">{t.students} ({students.length})</div>
+          <div className="card-title" style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}><span>{t.students} ({students.length})</span><button className="btn-blue" onClick={load}>{t.refresh}</button></div>
           {students.length===0 ? <div className="empty">{t.noStudents}</div> : (
             <div style={{overflowX:"auto"}}>
               <table className="tbl">
@@ -1389,3 +1392,7 @@ export default function App() {
     </>
   );
 }
+
+
+
+
